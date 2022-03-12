@@ -1,0 +1,3 @@
+[submodule "syndata-generation"]
+	path = syndata-generation
+	url = git@github.com:debidatta/syndata-generation.git
