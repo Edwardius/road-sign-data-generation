@@ -1,6 +1,8 @@
 import argparse
+from cProfile import label
 import glob  
 import os
+from pathlib import Path
 from functools import partial
 from PIL import Image
 import random
@@ -9,11 +11,59 @@ dirname = os.path.dirname(os.path.abspath(__file__))
 
 from multiprocessing import Pool
 
-def write_annotations(labels, class_name, x, y, w_f, h_f):
-  
+class_names = [ 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+  'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
+  'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+  'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
+  'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+  'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
+  'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+  'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear',
+  'hair drier', 'toothbrush', 'do_not_enter', 'handicap_parking', 'left_turn_only_arrow', 'left_turn_only_words']
+
+def write_annotations(output_label, label_name, labels, class_name, x, y, w_f, h_f, w_b, h_b):
+  ''' Write annotation to a new label file (.txt). 
+      Format: class_index x_centre y_centre width height
+      all values normalized from 0 to 1
+  '''
+  f = open(os.path.join(output_label, label_name), "w+")
+
+  # copy over the labels from the original data
+  for line in labels:
+    f.write(line)
+
+  # get index of the class
+  class_index = class_names.index(class_name)
+
+  # for images that are off the screen...
+  # too far right or too far down
+  if x + w_f > w_b:
+    w_f = w_b - x
+  if y + h_f > h_b:
+    h_f = h_b - y
+
+  # too far left or too far up
+  if x < 0:
+    w_f = w_f + x
+    x = 0
+  if y < 0:
+    h_f = h_f + y
+    y = 0
+
+  # get centres and normalize
+  x_centre = x + w_f/2
+  y_centre = y + h_f/2
+
+  width = w_f/w_b
+  height = h_f/h_b
+  x_centre = x_centre/w_b
+  y_centre = y_centre/h_b
+
+  # write to txt 
+  f.write("{} {:0.6f} {:0.6f} {:0.6f} {:0.6f}".format(class_index, x_centre, y_centre, width, height))
+
   return
 
-       
 def combine_data(data, output_image, output_label, min_size, min_appearance):
   ''' Load paths, augment images and labels, save them to the output directory
   '''
@@ -22,6 +72,7 @@ def combine_data(data, output_image, output_label, min_size, min_appearance):
   foreground = Image.open(data["road_sign_path"])
   class_name = data["road_sign_class"]
   labels = open(data["label_path"])
+  label_name = os.path.basename(data["label_path"])
  
   # Combine the foreground and background images
   w_b, h_b = background.size
@@ -44,7 +95,7 @@ def combine_data(data, output_image, output_label, min_size, min_appearance):
   background.paste(foreground, (x, y), foreground)
   background.save(os.path.join(output_image, os.path.basename(data["image_path"])))
 
-  write_annotations(labels, class_name, x, y, w_f, h_f)
+  write_annotations(output_label, label_name, labels, class_name, x, y, w_f, h_f, w_b, h_b)
 
   return 
 
@@ -85,8 +136,8 @@ def generate_road_sign_data(args):
   road_sign_dir = os.path.join(dirname, args.road_signs)
   
   # iterator for coco images and their labels
+  # iglob doesn't have a specific order when iterating, so we have to adapt the labels path to it
   coco_image_iterator = glob.iglob(os.path.join(coco_dir, 'images', 'train2017', '*.jpg'))
-  coco_label_iterator = glob.iglob(os.path.join(coco_dir, 'labels', 'train2017', '*.txt'))
 
   # what we will be sending into the pool for multiprocessing
   data_iterable = []
@@ -107,8 +158,11 @@ def generate_road_sign_data(args):
       except StopIteration:
         finish_iteration = True
       else:
+        coco_image_path = next(coco_image_iterator)
+        coco_label_path = os.path.join(coco_dir, 'labels', 'train2017', '{}.txt'.format(Path(os.path.basename(coco_image_path)).stem))
+
         data_iterable.append({"road_sign_path": road_sign, "road_sign_class": road_sign_class, 
-          "image_path": next(coco_image_iterator), "label_path": next(coco_label_iterator)})
+          "image_path": coco_image_path, "label_path": coco_label_path})
 
         if len(data_iterable) is args.batch_size:
           # send data_iterable in for processing
