@@ -11,6 +11,7 @@ dirname = os.path.dirname(os.path.abspath(__file__))
 
 from multiprocessing import Pool
 
+# classes for YOLOv5, the first few are from the coco dataset
 class_names = [ 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
   'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
   'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
@@ -51,13 +52,10 @@ def write_annotations(output_label, label_name, labels, class_name, x, y, w_f, h
     y = 0
 
   # get centres and normalize
-  x_centre = x + w_f/2
-  y_centre = y + h_f/2
-
+  x_centre = (x + w_f/2)/w_b
+  y_centre = (y + h_f/2)/h_b
   width = w_f/w_b
   height = h_f/h_b
-  x_centre = x_centre/w_b
-  y_centre = y_centre/h_b
 
   # write to txt 
   f.write("{} {:0.6f} {:0.6f} {:0.6f} {:0.6f}".format(class_index, x_centre, y_centre, width, height))
@@ -117,6 +115,7 @@ def process_synth_data(args, data):
     output_label = os.path.join(output_path, "labels"),  
     min_size=args.min_size, min_appearance=args.min_appearance)
 
+  # we split the work up to multiple workers, hopefully this distributes the load...
   try:
     pool.map(partial_func, data)
   except KeyboardInterrupt:
@@ -144,9 +143,9 @@ def generate_road_sign_data(args):
 
   # for each of the road sign categories, this will make sure that every road sign 
   # augment is used
-  for x in os.listdir(road_sign_dir):
-    road_sign_class = x
-
+  road_sign_classes = os.listdir(road_sign_dir)
+  
+  for road_sign_class in road_sign_classes:
     # iterator over the folder of augmented road_signs
     road_sign_iterator = glob.iglob(os.path.join(road_sign_dir, road_sign_class, '*.png'))
     finish_iteration = False
@@ -203,6 +202,10 @@ def parse_args():
     help="What is the minimum scale of a road sign if we want to randomly resize it?")
   parser.add_argument("min_appearance", default=0.9, type=float, 
     help="What is the minimum width/height of a road sign that must appear in the image?")
+  parser.add_argument("max_num_instances", default=3, type=float, 
+    help="What is the maximum number of instances of road signs in an image?")
+  parser.add_argument("flare_num", default=0.1, type=float, 
+    help="How much flare in the dataset? # images with flare = flare_num * images generated")
   args = parser.parse_args()
 
   return args
