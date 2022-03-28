@@ -8,8 +8,13 @@ import random
 dirname = os.path.dirname(os.path.abspath(__file__))
 
 from multiprocessing import Pool
+
+def write_annotations(labels, class_name, x, y, w_f, h_f):
+  
+  return
+
        
-def combine_data(data, output_path, min_size, min_appearance):
+def combine_data(data, output_image, output_label, min_size, min_appearance):
   ''' Load paths, augment images and labels, save them to the output directory
   '''
   # Load paths
@@ -37,7 +42,9 @@ def combine_data(data, output_path, min_size, min_appearance):
   x = random.randint(0, w_b-w_f) + random.randint(int(min_appearance*w_f), int(((1+(1-min_appearance))*w_f))) - w_f
   y = random.randint(0, h_b-h_f) + random.randint(int(min_appearance*h_f), int(((1+(1-min_appearance))*h_f))) - h_f
   background.paste(foreground, (x, y), foreground)
-  background.save(os.path.join(output_path, os.path.basename(data["image_path"])))
+  background.save(os.path.join(output_image, os.path.basename(data["image_path"])))
+
+  write_annotations(labels, class_name, x, y, w_f, h_f)
 
   return 
 
@@ -46,7 +53,17 @@ def process_synth_data(args, data):
       [{road_sign_path, road_sign_class, image_path, label_path}, ...]
   '''
   # set a couple of parameters alongside the single data iterable we pass in
-  partial_func = partial(combine_data, output_path=os.path.join(dirname, args.export), 
+  output_path = os.path.join(dirname, args.export)
+
+  if not os.path.exists(os.path.join(output_path, "images")):
+    os.mkdir(os.path.join(output_path, "images"))
+
+  if not os.path.exists(os.path.join(output_path, "labels")):
+    os.mkdir(os.path.join(output_path, "labels"))
+   
+  partial_func = partial(combine_data, 
+    output_image = os.path.join(output_path, "images"), 
+    output_label = os.path.join(output_path, "labels"),  
     min_size=args.min_size, min_appearance=args.min_appearance)
 
   try:
