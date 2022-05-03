@@ -129,6 +129,7 @@ def generate_road_sign_data(args):
   ''' Generate synthetic dataset according to given args
       we assume that the number of augmented images is not bigger
       than the coco training dataset (~581000 images)
+      Labeling follows the requirements for Yolov5
   '''
   # completing relative paths
   coco_dir = os.path.join(dirname, args.coco)
@@ -144,6 +145,9 @@ def generate_road_sign_data(args):
   # for each of the road sign categories, this will make sure that every road sign 
   # augment is used
   road_sign_classes = os.listdir(road_sign_dir)
+
+  # TODO add another loop around this one we need more road signs! Shuffle the road sign classes
+  # you can use math.random and change around the data_iterable
   
   for road_sign_class in road_sign_classes:
     # iterator over the folder of augmented road_signs
@@ -169,12 +173,8 @@ def generate_road_sign_data(args):
 
           # empty data_iterable
           data_iterable.clear()
-  
-  # if we want multiple road signs in one image
-  # iterate through new images and labels at random, add some extra random road signs to some of them, 
-  # delete the prev
 
-  # if we want flare 
+  # TODO if we want flare 
   # iterate through images and labels at random, add some flare, delete the prev
 
   data_iterable.clear()
