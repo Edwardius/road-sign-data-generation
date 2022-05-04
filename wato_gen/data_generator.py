@@ -125,6 +125,40 @@ def process_synth_data(args, data):
 
   return
 
+def prep_data(args, data, coco_img, coco_lab):
+  # completing relative path to road signs
+  if not os.path.isabs(args.road_signs):
+    print("Road Sign path is not absolute, attempting to complete relative path")
+    road_sign_dir = os.path.join(dirname, args.road_signs)
+  
+  # names of all the possible road signs classes we can choose from
+  road_sign_classes = os.listdir(road_sign_dir)
+
+  # glare
+  add_glare = False
+  if random.uniform(0, 1) < args.flare_chance:
+    add_glare = True
+
+  # folded, gaussian rounded to the nearest integer
+  num_road_signs = round(random.gauss(args.mu, args.sigma))
+  if num_road_signs < 0:
+    num_road_signs = -num_road_signs
+
+  # pick a random class of road sign and a random augmented image of that road sign
+  road_signs = []
+  road_sign_names = []
+  for i in range(num_road_signs):
+    road_sign_name = road_sign_classes[random.randint(0, len(road_sign_classes))]
+    road_sign_names.append(road_sign_name)
+    # we choose the directory through randomly generating a filename :)
+    road_signs.append(os.path.join(road_sign_dir, road_sign_name, 'aug{0:05d}.png'.format(random.randint(0, args.max_num_augs))))
+
+
+  data.append({"road_sign_paths": road_signs, "road_sign_names": road_sign_names, 
+          "image_path": coco_img, "label_path": coco_lab, "add_glare": add_glare})
+
+  return
+
 def generate_road_sign_data(args):
   ''' Generate synthetic dataset according to given args
       we assume that the number of augmented images is not bigger
@@ -132,8 +166,9 @@ def generate_road_sign_data(args):
       Labeling follows the requirements for Yolov5
   '''
   # completing relative paths
-  coco_dir = os.path.join(dirname, args.coco)
-  road_sign_dir = os.path.join(dirname, args.road_signs)
+  if not os.path.isabs(args.coco):
+    print("Road Sign path is not absolute, attempting to complete relative path")
+    coco_dir = os.path.join(dirname, args.coco)
   
   # iterator for coco images and their labels
   # iglob doesn't have a specific order when iterating, so we have to adapt the labels path to it
@@ -141,6 +176,28 @@ def generate_road_sign_data(args):
 
   # what we will be sending into the pool for multiprocessing
   data_iterable = []
+
+  # iterate through all the coco images, giving each a random number of road signs and optionally glare
+  while not finish_iteration:
+    try:
+      coco_image_path = next(coco_image_iterator)
+    except StopIteration or KeyboardInterrupt:
+      finish_iteration = True
+      data_iterable.clear()
+    else:
+      coco_label_path = os.path.join(coco_dir, 'labels', 'train2017', 
+        '{}.txt'.format(Path(os.path.basename(coco_image_path)).stem))
+      
+      # prep data_iterable with the data needed to generate a new image
+      prep_data(args, data_iterable, coco_image_path, coco_label_path)
+
+      # send data iterable in for processing once batch_size is reached, 
+      # saves new image and label in args.export
+      if len(data_iterable) is args.batch_size:
+          process_synth_data(args, data_iterable)
+
+          # empty data_iterable for next round of processing
+          data_iterable.clear()
 
   # for each of the road sign categories, this will make sure that every road sign 
   # augment is used
@@ -174,9 +231,6 @@ def generate_road_sign_data(args):
           # empty data_iterable
           data_iterable.clear()
 
-  # TODO if we want flare 
-  # iterate through images and labels at random, add some flare, delete the prev
-
   data_iterable.clear()
 
   return
@@ -193,6 +247,12 @@ def parse_args():
   parser.add_argument("road_signs", default="/mnt/wato-drive/perception_2d/signs_yolo/just_signs",
     help="WATonomous' road signs data.")
 
+  # Distribution Parameters
+  parser.add_argument("mu", default=5, type=float, 
+    help="Mean number of signs in each image")
+  parser.add_argument("sigma", default=1, type=float, 
+    help="Standard devation of signs in each image. Note this is a Folded Gaussian")
+
   # Generation Parameters
   parser.add_argument("batch_size", default=64, type=int,
     help="How many images do we want to process at a time?")
@@ -204,14 +264,25 @@ def parse_args():
     help="What is the minimum width/height of a road sign that must appear in the image?")
   parser.add_argument("max_num_instances", default=3, type=float, 
     help="What is the maximum number of instances of road signs in an image?")
-  parser.add_argument("flare_num", default=0.1, type=float, 
-    help="How much flare in the dataset? # images with flare = flare_num * images generated")
+  parser.add_argument("flare_chance", default=0.1, type=float, 
+    help="How much flare in the dataset? # images with flare = flare_chance * images generated")
   args = parser.parse_args()
+
+  # Cheating Parameters
+  ''' max_num_args: in order to not have the algorithm traverse the entire directory of 
+      road signs multiple times, a random number generator is used to pick the .png road sign to use
+  '''
+  parser.add_argument("max_num_augs", default=30000, type=int,
+    help="What is the max number of images in a directory of road signs?")
 
   return args
 
 if __name__ == '__main__':
   args = parse_args()
 
+  ''' Multiple processes could be at risk of producing the same random numbers, 
+      but in testing this was not an issue. random.seed(1) maynot be needed here.
+  '''
+  random.seed(1) 
   with Pool(processes=args.num_workers) as pool:
     generate_road_sign_data(args)
