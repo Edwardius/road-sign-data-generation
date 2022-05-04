@@ -242,9 +242,9 @@ def parse_args():
     help="Standard devation of signs in each image. Note this is a Folded Gaussian")
 
   # Generation Parameters
-  parser.add_argument("--batch_size", default=2, type=int,
+  parser.add_argument("--batch_size", default=64, type=int,
     help="How many images do we want to process at a time?")
-  parser.add_argument("--num_workers", default=1, type=int, 
+  parser.add_argument("--num_workers", default=4, type=int, 
     help="How many workers will be processing these images at a time? Each worker roughly does batch_size/num_workers images")
   parser.add_argument("--min_size", default=0.1, type=float, 
     help="What is the minimum scale of a road sign if we want to randomly resize it?")
