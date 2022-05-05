@@ -254,15 +254,16 @@ def parse_args():
   '''Parse input arguments
   '''
   parser = argparse.ArgumentParser(description="Creates a dataset of road signs")
+  
   # Path Parameters
   parser.add_argument("--coco", required=True,
     help="The coco directory which contains the images and labels.")
   parser.add_argument("--export", required=True,
     help="The directory where images and labels will be created.")
   parser.add_argument("--road_signs", required=True,
-    help="WATonomous' road signs data.")
+    help="Directory of WATonomous' road signs data.")
   parser.add_argument("--glare", default="", type=str,
-    help="WATonomous' road signs data.")
+    help="Directory of glares")
 
   # Distribution Parameters
   parser.add_argument("--mu", default=1.5, type=float, 
