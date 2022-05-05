@@ -1,5 +1,6 @@
 # Misc ignores we need to do
 wato_gen/coco/
+wato_gen/glares/
 .vscode
 
 ## Ignore Visual Studio temporary files, build results, and

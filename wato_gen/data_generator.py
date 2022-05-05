@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from functools import partial
 from re import L
-from PIL import Image
+from PIL import Image, ImageEnhance
 import random
 
 dirname = os.path.dirname(os.path.abspath(__file__))
@@ -89,7 +89,7 @@ def combine_images(background, foreground, min_s, min_a):
 
   return x, y, w_f, h_f, w_b, h_b
 
-def process_data(data, output_image, output_label, min_size, min_appearance):
+def process_data(data, output_image, output_label, min_size, min_appearance, glare_factor):
   ''' Load paths, augment images and labels, combine and save them to the output directory
   '''
   # Load paths
@@ -114,7 +114,11 @@ def process_data(data, output_image, output_label, min_size, min_appearance):
   
   # add glare
   if os.path.exists(data["glare_path"]):
-    glare = Image.open(data["glare_path"]).convert("L")
+    glare = Image.open(data["glare_path"])
+    enhancer = ImageEnhance.Brightness(glare)
+
+    glare = enhancer.enhance(glare_factor)
+    glare = glare.convert("L")
 
     # Combine the glare and background images
     w_b, h_b = background.size
@@ -141,7 +145,7 @@ def allocate_work(args, data):
   partial_func = partial(process_data, 
     output_image = os.path.join(output_path, "images"), 
     output_label = os.path.join(output_path, "labels"),  
-    min_size=args.min_size, min_appearance=args.min_appearance)
+    min_size=args.min_size, min_appearance=args.min_appearance, glare_factor=args.glare_factor)
 
   # we split the work up to multiple workers, hopefully this distributes the load...
   try:
@@ -261,9 +265,9 @@ def parse_args():
     help="WATonomous' road signs data.")
 
   # Distribution Parameters
-  parser.add_argument("--mu", default=3, type=float, 
+  parser.add_argument("--mu", default=1.5, type=float, 
     help="Mean number of signs in each image")
-  parser.add_argument("--sigma", default=1.5, type=float, 
+  parser.add_argument("--sigma", default=0.8, type=float, 
     help="Standard devation of signs in each image. Note this is a Folded Gaussian")
 
   # Generation Parameters
@@ -277,8 +281,10 @@ def parse_args():
     help="What is the minimum width/height of a road sign that must appear in the image?")
   parser.add_argument("--max_num_instances", default=3, type=float, 
     help="What is the maximum number of instances of road signs in an image?")
-  parser.add_argument("--glare_chance", default=0.5, type=float, 
+  parser.add_argument("--glare_chance", default=1.0, type=float, 
     help="How much glare in the dataset? # images with flare = flare_chance * images generated")
+  parser.add_argument("--glare_factor", default=0.9, type=float, 
+    help="Strength of glare. 1 is opaque whites, 0 is fully transparent.")
 
   # Cheating Parameters
   ''' max_num_args: in order to not have the algorithm traverse the entire directory of 
