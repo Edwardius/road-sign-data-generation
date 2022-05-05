@@ -19,7 +19,7 @@ Obtain a dataset of augmented traffic signs, WATonomous will keep this a secret 
 
 ## Usage
 ---
-Simply run `wato_gen/data_generator.py`, but there some parameters you have to enter along with it. Here is a list of them, most have defaults.
+Simply run `wato_gen/data_generator.py`. There are some parameters you have to enter along with it. Here is a list of them, most have defaults.
 ```
 usage: data_generator.py [-h] --coco COCO --export EXPORT --road_signs ROAD_SIGNS [--glare GLARE] [--mu MU] [--sigma SIGMA]
                          [--batch_size BATCH_SIZE] [--num_workers NUM_WORKERS] [--min_size MIN_SIZE] [--min_appearance MIN_APPEARANCE]
@@ -45,8 +45,6 @@ optional arguments:
   --min_size MIN_SIZE   What is the minimum scale of a road sign if we want to randomly resize it?
   --min_appearance MIN_APPEARANCE
                         What is the minimum width/height of a road sign that must appear in the image?
-  --max_num_instances MAX_NUM_INSTANCES
-                        What is the maximum number of instances of road signs in an image?
   --glare_chance GLARE_CHANCE
                         How much glare in the dataset? # images with flare = flare_chance * images generated
   --glare_factor GLARE_FACTOR
