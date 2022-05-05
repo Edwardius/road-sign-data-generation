@@ -279,8 +279,6 @@ def parse_args():
     help="What is the minimum scale of a road sign if we want to randomly resize it?")
   parser.add_argument("--min_appearance", default=0.9, type=float, 
     help="What is the minimum width/height of a road sign that must appear in the image?")
-  parser.add_argument("--max_num_instances", default=3, type=float, 
-    help="What is the maximum number of instances of road signs in an image?")
   parser.add_argument("--glare_chance", default=1.0, type=float, 
     help="How much glare in the dataset? # images with flare = flare_chance * images generated")
   parser.add_argument("--glare_factor", default=0.9, type=float, 
