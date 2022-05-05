@@ -3,7 +3,6 @@ import glob
 import os
 from pathlib import Path
 from functools import partial
-from re import L
 from PIL import Image, ImageEnhance
 import random
 
