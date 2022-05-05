@@ -131,7 +131,7 @@ def process_data(data, output_image, output_label, min_size, min_appearance, gla
 
 def allocate_work(args, data):
   ''' Allocates batch to the workers. Data consists of 
-      [{road_sign_path, road_sign_class, image_path, label_path}, ...]
+      [{[road_sign_paths], [road_sign_names], image_path, label_path, glare_path}, ...]
   '''
   # set a couple of parameters alongside the single data iterable we pass in
   output_path = os.path.join(dirname, args.export)
@@ -254,7 +254,7 @@ def parse_args():
   '''Parse input arguments
   '''
   parser = argparse.ArgumentParser(description="Creates a dataset of road signs")
-  
+
   # Path Parameters
   parser.add_argument("--coco", required=True,
     help="The coco directory which contains the images and labels.")
