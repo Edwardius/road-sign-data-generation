@@ -1,7 +1,5 @@
 import argparse
-from cProfile import label
 import glob
-from imp import lock_held  
 import os
 from pathlib import Path
 from functools import partial
@@ -62,7 +60,36 @@ def write_annotations(f, class_name, x, y, w_f, h_f, w_b, h_b):
 
   return
 
-def combine_images(data, output_image, output_label, min_size, min_appearance):
+def combine_images(background, foreground, min_s, min_a):
+  # Combine the foreground and background images
+  w_b, h_b = background.size
+  w_f, h_f = foreground.size
+
+  # Resize foreground image, minimum dimensions must be min_size% the original
+  ratio_f = h_f/w_f
+
+  if int(w_f*min_s) < w_f:
+    rand_w_f = random.randint(int(w_f*min_s), w_f)
+  else:
+    rand_w_f = random.randint(w_f, int(w_f*min_s))
+
+  rand_h_f = int(rand_w_f*ratio_f)
+
+  f_new_size = (rand_w_f, rand_h_f)
+  foreground = foreground.resize(f_new_size)
+  w_f, h_f = foreground.size
+  
+  # Paste onto background
+  # x and y will only ever paste a minimum of min_appearance% * w_f, min_appearance% * h_f 
+  # the original sign except when the minimum size is bigger than 1
+  x = random.randint(0, w_b-w_f) + random.randint(int(min_a*w_f), int(((1+(1-min_a))*w_f))) - w_f
+  y = random.randint(0, h_b-h_f) + random.randint(int(min_a*h_f), int(((1+(1-min_a))*h_f))) - h_f
+
+  background.paste(foreground, (x, y), foreground)
+
+  return x, y, w_f, h_f, w_b, h_b
+
+def process_data(data, output_image, output_label, min_size, min_appearance):
   ''' Load paths, augment images and labels, combine and save them to the output directory
   '''
   # Load paths
@@ -76,38 +103,29 @@ def combine_images(data, output_image, output_label, min_size, min_appearance):
   # copy over the labels from the original data
   for line in labels:
     f.write(line)
-
+  
   for i in range(len(data["road_sign_names"])):
     foreground = Image.open(data["road_sign_paths"][i])
     class_name = data["road_sign_names"][i]
-  
-    # Combine the foreground and background images
-    w_b, h_b = background.size
-    w_f, h_f = foreground.size
 
-    # Resize foreground image, minimum dimensions must be min_size% the original
-    ratio_f = h_f/w_f
-    rand_w_f = random.randint(int(w_f*min_size), w_f)
-    rand_h_f = int(rand_w_f*ratio_f)
-
-    f_new_size = (rand_w_f, rand_h_f)
-    foreground = foreground.resize(f_new_size)
-    w_f, h_f = foreground.size
-    
-    # Paste onto background
-    # x and y will only ever paste a minimum of min_appearance% * w_f, min_appearance% * h_f 
-    # the original sign
-    x = random.randint(0, w_b-w_f) + random.randint(int(min_appearance*w_f), int(((1+(1-min_appearance))*w_f))) - w_f
-    y = random.randint(0, h_b-h_f) + random.randint(int(min_appearance*h_f), int(((1+(1-min_appearance))*h_f))) - h_f
-    background.paste(foreground, (x, y), foreground)
-
+    # combine the images and update the label
+    x, y, w_f, h_f, w_b, h_b = combine_images(background, foreground, min_size, min_appearance)
     write_annotations(f, class_name, x, y, w_f, h_f, w_b, h_b)
+  
+  # add glare
+  if os.path.exists(data["glare_path"]):
+    glare = Image.open(data["glare_path"]).convert("L")
+
+    # Combine the glare and background images
+    w_b, h_b = background.size
+    glare = glare.resize((w_b, h_b))
+    background.paste(glare, (0, 0), glare) 
 
   background.save(os.path.join(output_image, os.path.basename(data["image_path"])))
 
   return 
 
-def process_synth_data(args, data):
+def allocate_work(args, data):
   ''' Allocates batch to the workers. Data consists of 
       [{road_sign_path, road_sign_class, image_path, label_path}, ...]
   '''
@@ -120,7 +138,7 @@ def process_synth_data(args, data):
   if not os.path.exists(os.path.join(output_path, "labels")):
     os.mkdir(os.path.join(output_path, "labels"))
    
-  partial_func = partial(combine_images, 
+  partial_func = partial(process_data, 
     output_image = os.path.join(output_path, "images"), 
     output_label = os.path.join(output_path, "labels"),  
     min_size=args.min_size, min_appearance=args.min_appearance)
@@ -135,11 +153,12 @@ def process_synth_data(args, data):
 
   return
 
-def prep_data(args, data, coco_img, coco_lab, road_sign_classes, road_sign_dir):
+def prep_data(args, data, coco_img, coco_lab, road_sign_classes, road_sign_dir, glare_dir):
   # glare
-  add_glare = False
-  if random.uniform(0, 1) < args.flare_chance:
-    add_glare = True
+  glare_path = ""
+  if random.uniform(0, 1) < args.glare_chance and os.path.exists(glare_dir):
+    # we choose the directory through randomly generating a glare filename
+    glare_path = os.path.join(glare_dir, 'test/occlusion_images', '{0:05d}.png'.format(random.randint(0, 12450)))
 
   # folded, gaussian rounded to the nearest integer
   num_road_signs = round(random.gauss(args.mu, args.sigma))
@@ -161,7 +180,7 @@ def prep_data(args, data, coco_img, coco_lab, road_sign_classes, road_sign_dir):
     road_signs.append(p)
 
   data.append({"road_sign_paths": road_signs, "road_sign_names": road_sign_names, 
-          "image_path": coco_img, "label_path": coco_lab, "add_glare": add_glare})
+          "image_path": coco_img, "label_path": coco_lab, "glare_path": glare_path})
 
   return
 
@@ -179,6 +198,10 @@ def generate_road_sign_data(args):
   if not os.path.isabs(args.road_signs):
     print("Road Sign path is not absolute, attempting to complete as relative path")
     road_sign_dir = os.path.join(dirname, args.road_signs)
+
+  if not os.path.isabs(args.glare):
+    print("Glare path is not absolute, attempting to complete as relative path")
+    glare_dir = os.path.join(dirname, args.glare)
 
   # names of all the possible road signs classes we can choose from
   road_sign_classes = os.listdir(road_sign_dir)
@@ -209,12 +232,12 @@ def generate_road_sign_data(args):
       counter += 1
       if counter > 5: finish_iteration = True
       # prep data_iterable with the data needed to generate a new image
-      prep_data(args, data_iterable, coco_image_path, coco_label_path, road_sign_classes, road_sign_dir)
+      prep_data(args, data_iterable, coco_image_path, coco_label_path, road_sign_classes, road_sign_dir, glare_dir)
 
       # send data iterable in for processing once batch_size is reached, 
       # saves new image and label in args.export
       if len(data_iterable) is args.batch_size:
-          process_synth_data(args, data_iterable)
+          allocate_work(args, data_iterable)
 
           # empty data_iterable for next round of processing
           data_iterable.clear()
@@ -234,17 +257,19 @@ def parse_args():
     help="The directory where images and labels will be created.")
   parser.add_argument("--road_signs", required=True,
     help="WATonomous' road signs data.")
+  parser.add_argument("--glare", default="", type=str,
+    help="WATonomous' road signs data.")
 
   # Distribution Parameters
-  parser.add_argument("--mu", default=5, type=float, 
+  parser.add_argument("--mu", default=3, type=float, 
     help="Mean number of signs in each image")
-  parser.add_argument("--sigma", default=1, type=float, 
+  parser.add_argument("--sigma", default=1.5, type=float, 
     help="Standard devation of signs in each image. Note this is a Folded Gaussian")
 
   # Generation Parameters
-  parser.add_argument("--batch_size", default=64, type=int,
+  parser.add_argument("--batch_size", default=2, type=int,
     help="How many images do we want to process at a time?")
-  parser.add_argument("--num_workers", default=4, type=int, 
+  parser.add_argument("--num_workers", default=1, type=int, 
     help="How many workers will be processing these images at a time? Each worker roughly does batch_size/num_workers images")
   parser.add_argument("--min_size", default=0.1, type=float, 
     help="What is the minimum scale of a road sign if we want to randomly resize it?")
@@ -252,8 +277,8 @@ def parse_args():
     help="What is the minimum width/height of a road sign that must appear in the image?")
   parser.add_argument("--max_num_instances", default=3, type=float, 
     help="What is the maximum number of instances of road signs in an image?")
-  parser.add_argument("--flare_chance", default=0.1, type=float, 
-    help="How much flare in the dataset? # images with flare = flare_chance * images generated")
+  parser.add_argument("--glare_chance", default=0.5, type=float, 
+    help="How much glare in the dataset? # images with flare = flare_chance * images generated")
 
   # Cheating Parameters
   ''' max_num_args: in order to not have the algorithm traverse the entire directory of 
@@ -278,7 +303,7 @@ if __name__ == '__main__':
   ''' Multiple processes could be at risk of producing the same random numbers, 
       but in testing this was not an issue. random.seed(1) maynot be needed here.
   '''
-  random.seed(1) 
+  # random.seed(1) 
   with Pool(processes=args.num_workers, initializer=init, initargs=(l,)) as pool:
     generate_road_sign_data(args)
 
