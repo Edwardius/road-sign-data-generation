@@ -118,11 +118,12 @@ def process_data(data, output_image, output_label, min_size, min_appearance, gla
 
     glare = enhancer.enhance(glare_factor)
     glare = glare.convert("L")
-
+    
     # Combine the glare and background images
     w_b, h_b = background.size
     glare = glare.resize((w_b, h_b))
-    background.paste(glare, (0, 0), glare) 
+    white = Image.new("RGB", (w_b, h_b), (255, 255, 255))
+    background.paste(white, (0, 0), glare) 
 
   background.save(os.path.join(output_image, os.path.basename(data["image_path"])))
 
