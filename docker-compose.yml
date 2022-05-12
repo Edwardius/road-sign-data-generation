@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  wato_gen:
+    build:
+      context: .
+      dockerfile: wato_gen.Dockerfile
+    image: git.uwaterloo.ca:5050/watonomous/registry/camera-object-detection/wato_gen
+    volumes:
+      - /mnt/wato-drive/road:/road
+      - ./wato_gen:/project/wato-gen
+    ipc: host
+    tty: true

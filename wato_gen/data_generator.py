@@ -5,6 +5,7 @@ from pathlib import Path
 from functools import partial
 from PIL import Image, ImageEnhance
 import random
+import tqdm
 
 dirname = os.path.dirname(os.path.abspath(__file__))
 
