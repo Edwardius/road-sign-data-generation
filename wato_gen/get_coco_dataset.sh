@@ -1,30 +1,35 @@
-#!/bin/bash
-
-# Clone COCO API
-git clone https://github.com/pdollar/coco
+mkdir coco
 cd coco
-
 mkdir images
 cd images
 
-# Download Images
-wget -c https://pjreddie.com/media/files/train2014.zip
-wget -c https://pjreddie.com/media/files/val2014.zip
+wget http://images.cocodataset.org/zips/train2017.zip
+wget http://images.cocodataset.org/zips/val2017.zip
+wget http://images.cocodataset.org/zips/test2017.zip
+wget http://images.cocodataset.org/zips/unlabeled2017.zip
 
-# Unzip
-unzip -q train2014.zip
-unzip -q val2014.zip
+unzip train2017.zip
+unzip val2017.zip
+unzip test2017.zip
+unzip unlabeled2017.zip
 
-cd ..
+rm train2017.zip
+rm val2017.zip
+rm test2017.zip
+rm unlabeled2017.zip 
 
-# Download COCO Metadata
-wget -c https://pjreddie.com/media/files/instances_train-val2014.zip
-wget -c https://pjreddie.com/media/files/coco/5k.part
-wget -c https://pjreddie.com/media/files/coco/trainvalno5k.part
-wget -c https://pjreddie.com/media/files/coco/labels.tgz
-tar xzf labels.tgz
-unzip -q instances_train-val2014.zip
+cd ../
+wget http://images.cocodataset.org/annotations/annotations_trainval2017.zip
+wget http://images.cocodataset.org/annotations/stuff_annotations_trainval2017.zip
+wget http://images.cocodataset.org/annotations/image_info_test2017.zip
+wget http://images.cocodataset.org/annotations/image_info_unlabeled2017.zip
 
-# Set Up Image Lists
-paste <(awk "{print \"$PWD\"}" <5k.part) 5k.part | tr -d '\t' > 5k.txt
-paste <(awk "{print \"$PWD\"}" <trainvalno5k.part) trainvalno5k.part | tr -d '\t' > trainvalno5k.txt
+unzip annotations_trainval2017.zip
+unzip stuff_annotations_trainval2017.zip
+unzip image_info_test2017.zip
+unzip image_info_unlabeled2017.zip
+
+rm annotations_trainval2017.zip
+rm stuff_annotations_trainval2017.zip
+rm image_info_test2017.zip
+rm image_info_unlabeled2017.zip
