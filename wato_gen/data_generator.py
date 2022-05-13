@@ -221,6 +221,7 @@ def generate_road_sign_data(args):
   # iterate through all the coco images, giving each a random number of road signs and optionally glare
   finish_iteration = False
   counter = 0
+  pbar = tqdm(total=len(os.listdir(os.path.join(coco_dir, 'images', 'train2017'))))
   while not finish_iteration:
     try:
       coco_image_path = next(coco_image_iterator)
@@ -235,6 +236,7 @@ def generate_road_sign_data(args):
         continue
       
       counter += 1
+      pbar.update(1)
       if counter > 5: finish_iteration = True
       # prep data_iterable with the data needed to generate a new image
       prep_data(args, data_iterable, coco_image_path, coco_label_path, road_sign_classes, road_sign_dir, glare_dir)
@@ -248,6 +250,7 @@ def generate_road_sign_data(args):
           data_iterable.clear()
 
   data_iterable.clear()
+  pbar.close()
 
   return
 
