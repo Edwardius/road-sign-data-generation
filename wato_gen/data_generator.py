@@ -12,7 +12,7 @@ dirname = os.path.dirname(os.path.abspath(__file__))
 from multiprocessing import Pool, Lock
 
 # classes for YOLOv5, the first few are from the coco dataset
-class_names = [ 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+class_names = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
   'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
   'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
   'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
@@ -20,7 +20,9 @@ class_names = [ 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'tr
   'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
   'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
   'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear',
-  'hair drier', 'toothbrush', 'do_not_enter', 'handicap_parking', 'left_turn_only_arrow', 'left_turn_only_words']
+  'hair drier', 'toothbrush', 'do_not_enter', 'left_turn_only_arrow', 'pedestrian_xing', 'right_turn_only_arrow', 'speed_limit_10', 
+  'speed_limit_20', 'speed_limit_5', 'handicap_parking', 'left_turn_only_words', 'P_parking', 'right_turn_only_words', 
+  'speed_limit_15', 'speed_limit_25']
 
 def write_annotations(f, class_name, x, y, w_f, h_f, w_b, h_b):
   ''' Write annotation to a new label file (.txt). 
