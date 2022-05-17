@@ -6,7 +6,10 @@ services:
       dockerfile: wato_gen.Dockerfile
     image: git.uwaterloo.ca:5050/watonomous/registry/camera-object-detection/wato_gen
     volumes:
-      - /mnt/wato-drive/road:/road
+      - /mnt/wato-drive/perception_2d/coco:/perception/coco
+      - /mnt/wato-drive/perception_2d/road_sign_data:/perception/export
+      - /mnt/wato-drive/perception_2d/signs_yolo/just_signs/augmented:/perception/road_signs
+      - /mnt/wato-drive/perception_2d/glares/dataset:/perception/glare
       - ./wato_gen:/project/wato-gen
     ipc: host
     tty: true
