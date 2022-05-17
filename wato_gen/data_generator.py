@@ -62,18 +62,17 @@ def write_annotations(f, class_name, x, y, w_f, h_f, w_b, h_b):
 
   return
 
-def combine_images(background, foreground, min_s, min_a):
+def combine_images(background, foreground, min_s, max_s, min_a):
   # Combine the foreground and background images
   w_b, h_b = background.size
   w_f, h_f = foreground.size
 
-  # Resize foreground image, minimum dimensions must be min_size% the original
+  # Resize foreground image, road sign starts at being min_s% of the coco image's width
   ratio_f = h_f/w_f
+  w_f = int(w_b*min_s)
 
-  if int(w_f*min_s) < w_f:
-    rand_w_f = random.randint(int(w_f*min_s), w_f)
-  else:
-    rand_w_f = random.randint(w_f, int(w_f*min_s))
+  # randomly rescale the foreground image between its min and max sizes wrt to background image
+  rand_w_f = random.randint(w_f, int(w_b * max_s))
 
   rand_h_f = int(rand_w_f*ratio_f)
 
@@ -85,13 +84,13 @@ def combine_images(background, foreground, min_s, min_a):
   # x and y will only ever paste a minimum of min_appearance% * w_f, min_appearance% * h_f 
   # the original sign except when the minimum size is bigger than 1
   x = random.randint(0, w_b-w_f) + random.randint(int(min_a*w_f), int(((1+(1-min_a))*w_f))) - w_f
-  y = random.randint(0, h_b-h_f) + random.randint(int(min_a*h_f), int(((1+(1-min_a))*h_f))) - h_f
+  y = random.randint(0, abs(h_b-h_f)) + random.randint(int(min_a*h_f), int(((1+(1-min_a))*h_f))) - h_f
 
   background.paste(foreground, (x, y), foreground)
 
   return x, y, w_f, h_f, w_b, h_b
 
-def process_data(data, output_image, output_label, min_size, min_appearance, glare_factor):
+def process_data(data, output_image, output_label, min_size, max_size, min_appearance, glare_factor):
   ''' Load paths, augment images and labels, combine and save them to the output directory
   '''
   # Load paths
@@ -111,7 +110,7 @@ def process_data(data, output_image, output_label, min_size, min_appearance, gla
     class_name = data["road_sign_names"][i]
 
     # combine the images and update the label
-    x, y, w_f, h_f, w_b, h_b = combine_images(background, foreground, min_size, min_appearance)
+    x, y, w_f, h_f, w_b, h_b = combine_images(background, foreground, min_size, max_size, min_appearance)
     write_annotations(f, class_name, x, y, w_f, h_f, w_b, h_b)
   
   # add glare
@@ -148,7 +147,7 @@ def allocate_work(args, data):
   partial_func = partial(process_data, 
     output_image = os.path.join(output_path, "images"), 
     output_label = os.path.join(output_path, "labels"),  
-    min_size=args.min_size, min_appearance=args.min_appearance, glare_factor=args.glare_factor)
+    min_size=args.min_size, max_size=args.max_size, min_appearance=args.min_appearance, glare_factor=args.glare_factor)
 
   # we split the work up to multiple workers, hopefully this distributes the load...
   try:
@@ -225,7 +224,6 @@ def generate_road_sign_data(args):
 
   # iterate through all the coco images, giving each a random number of road signs and optionally glare
   finish_iteration = False
-  counter = 0
   pbar = tqdm(total=len(os.listdir(os.path.join(coco_dir, 'images', 'train2017'))))
   while not finish_iteration:
     try:
@@ -240,9 +238,7 @@ def generate_road_sign_data(args):
       if not os.path.exists(coco_label_path):
         continue
       
-      counter += 1
       pbar.update(1)
-      if counter > 5: finish_iteration = True
       # prep data_iterable with the data needed to generate a new image
       prep_data(args, data_iterable, coco_image_path, coco_label_path, road_sign_classes, road_sign_dir, glare_dir)
 
@@ -275,21 +271,23 @@ def parse_args():
     help="Directory of glares")
 
   # Distribution Parameters
-  parser.add_argument("--mu", default=1.5, type=float, 
+  parser.add_argument("--mu", default=1.0, type=float, 
     help="Mean number of signs in each image")
-  parser.add_argument("--sigma", default=0.8, type=float, 
+  parser.add_argument("--sigma", default=1.2, type=float, 
     help="Standard devation of signs in each image. Note this is a Folded Gaussian")
 
   # Generation Parameters
-  parser.add_argument("--batch_size", default=2, type=int,
+  parser.add_argument("--batch_size", default=2048, type=int,
     help="How many images do we want to process at a time?")
-  parser.add_argument("--num_workers", default=1, type=int, 
+  parser.add_argument("--num_workers", default=32, type=int, 
     help="How many workers will be processing these images at a time? Each worker roughly does batch_size/num_workers images")
-  parser.add_argument("--min_size", default=0.1, type=float, 
-    help="What is the minimum scale of a road sign if we want to randomly resize it?")
+  parser.add_argument("--min_size", default=0.05, type=float, 
+    help="What is the minimum scale of a road sign wrt the image if we want to randomly resize it?")
+  parser.add_argument("--max_size", default=0.2, type=float, 
+    help="What is the minimum scale of a road sign wrt the image if we want to randomly resize it?")
   parser.add_argument("--min_appearance", default=0.9, type=float, 
     help="What is the minimum width/height of a road sign that must appear in the image?")
-  parser.add_argument("--glare_chance", default=1.0, type=float, 
+  parser.add_argument("--glare_chance", default=0.5, type=float, 
     help="How much glare in the dataset? # images with flare = flare_chance * images generated")
   parser.add_argument("--glare_factor", default=0.9, type=float, 
     help="Strength of glare. 1 is opaque whites, 0 is fully transparent.")
