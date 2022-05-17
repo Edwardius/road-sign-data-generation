@@ -201,14 +201,17 @@ def generate_road_sign_data(args):
   if not os.path.isabs(args.coco):
     print("Road Sign path is not absolute, attempting to complete as relative path")
     coco_dir = os.path.join(dirname, args.coco)
+  coco_dir = args.coco
 
   if not os.path.isabs(args.road_signs):
     print("Road Sign path is not absolute, attempting to complete as relative path")
     road_sign_dir = os.path.join(dirname, args.road_signs)
+  road_sign_dir = args.road_signs
 
   if not os.path.isabs(args.glare):
     print("Glare path is not absolute, attempting to complete as relative path")
     glare_dir = os.path.join(dirname, args.glare)
+  glare_dir = args.glare
 
   # names of all the possible road signs classes we can choose from
   road_sign_classes = os.listdir(road_sign_dir)
